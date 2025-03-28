@@ -1,4 +1,4 @@
-class CameraContoller {
+export class CameraContoller {
   constructor(videoEl){
 
     this._videoEl = videoEl;
