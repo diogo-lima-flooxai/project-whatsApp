@@ -17,7 +17,6 @@ export class WhatsAppController {
   }
 
   initAuth() {
-    
     this._firebase
       .initAuth()
       .then((response) => {
@@ -58,20 +57,17 @@ export class WhatsAppController {
       });
   }
 
-initContacts(){
+  initContacts() {
+    this._user.on("contactschange", (docs) => {
+      this.el.contactsMessagesList.innerHTML = "";
 
-  this._user.on('contactschange', docs=>{
+      docs.forEach((doc) => {
+        let contact = doc.data();
+        let div = document.createElement("div");
 
-    this.el.contactsMessagesList.innerHTML = '';
+        div.className = "contact-item";
 
-        docs.forEach(doc =>{
-
-            let contact = doc.data();
-            let div = document.createElement('div');
-
-            div.className = 'contact-item';
-    
-            div.innerHTML = `
+        div.innerHTML = `
             <div class="dIyEr">
                 <div class="_1WliW" style="height: 49px; width: 49px;">
                     <img src="#" class="Qgzj8 gqwaM photo" style="display:none;">
@@ -121,39 +117,35 @@ initContacts(){
             </div>
             `;
 
-            if (contact.photo){
-                let img = div.querySelector('.photo');
-                img.src = contact.photo;
-                img.show();
-            }
+        if (contact.photo) {
+          let img = div.querySelector(".photo");
+          img.src = contact.photo;
+          img.show();
+        }
 
-            div.on('click', e=>{
 
-                this.el.activeName.innerHTML = contact.name;
-                this.el.activeStatus.innerHTML = contact.status;
+        div.on("click", (e) => {
+          this.el.activeName.innerHTML = contact.name;
+          this.el.activeStatus.innerHTML = contact.status;
 
-                if(contact.photo){
-                    let img = this.el.activePhoto;
-                    img.src = contact.photo;
-                    img.show();
-                }
+          if (contact.photo) {
+            let img = this.el.activePhoto;
+            img.src = contact.photo;
+            img.show();
+          }
 
-                this.el.home.hide();
-                this.el.main.css({
-                    display:'flex'
-                });
-
-            });
-
-            this.el.contactsMessagesList.appendChild(div);
-
+          this.el.home.hide();
+          this.el.main.css({
+            display: "flex",
+          });
         });
 
-});
+        this.el.contactsMessagesList.appendChild(div);
+      });
+    });
 
-this._user.getContacts()
-
-}
+    this._user.getContacts();
+  }
 
   loadElements() {
     this.el = {};
@@ -273,7 +265,7 @@ this._user.getContacts()
       contact.on("datachange", (data) => {
         if (data.name) {
           this._user.addContact(contact).then(() => {
-            this.el.btnClosePanelAddContact.clcik();
+            this.el.btnClosePanelAddContact.click();
             console.info("Contato Adicionado");
           });
         } else [console.error("Usuario não encontrado")];
