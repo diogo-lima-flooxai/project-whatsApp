@@ -6,6 +6,9 @@ import { Firebase } from "../util/Firebase";
 import { User } from "../model/User";
 import { Chat } from "../model/Chat";
 import { Message } from "../model/Message";
+import { Base64 } from "../util/base64";
+import { ContactsController } from "./ContactsController";
+
 export class WhatsAppController {
   constructor() {
     console.log("WhatsAppController ok!");
@@ -189,7 +192,14 @@ export class WhatsAppController {
             let view = message.getViewElement(me);
 
             this.el.panelMessagesContainer.appendChild(view);
-          } else if(me) {
+          } else {
+
+            let view = message.getViewElement(me);
+            this.el.panelMessagesContainer.querySelector("#_" + data.id).innerHTML = view.innerHTML
+
+          } 
+          
+          if(this.el.panelMessagesContainer.querySelector("#_" + data.id) && me) {
             let msgEl = this.el.panelMessagesContainer.querySelector("#_" + data.id)
 
             msgEl.querySelector('.message-status').innerHTML = message.getStatusViewElement().outerHTML;
@@ -406,17 +416,57 @@ export class WhatsAppController {
       this.el.containerSendPicture.show();
     });
 
-    // this.el.bntReshootPanelCamera.on('click', e =>{
-    //   this.el.pictureCamera.hide();
-    //   this.el.pictureCamera.show();
-    //   this.el.bntReshootPanelCamera.hide();
-    //   this.el.containerTakePicture.show()
-    //   this.el.containerSendPicture.hide();
-    // });
+    this.el.bntReshootPanelCamera.on('click', e =>{
+      this.el.pictureCamera.hide();
+      this.el.pictureCamera.show();
+      this.el.bntReshootPanelCamera.hide();
+      this.el.containerTakePicture.show()
+      this.el.containerSendPicture.hide();
+    });
 
-    // this.el.bntSendPicture.on('click', e=>{
-    //   console.log(this.el.pictureCamera.src)
-    // })
+    this.el.bntSendPicture.on('click', e=>{
+
+      let regex = /^data:(.+);base64,(.*)$/;
+      let result = this.el.pictureCamera.src.match(regex);
+      let mimeType = result[1];
+      let ext = mimeType.split('/')[1];
+      let filename = `camera${Date.now()}.${ext}`;
+
+      let picture = new Image();
+      picture.src = this.el.pictureCamera.src;
+      picture.onload = e => {
+          let canvas = document.createElement('canvas');
+          let context = canvas.getContext('2d');
+
+          canvas.width = picture.width;
+          canvas.height = picture.height;
+
+          context.translate(picture.width, 0);
+          context.scale(-1, 1);
+
+          context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+
+          fetch(canvas.toDataURL(mimeType)) 
+          .then(res => { return res.arrayBuffer(); 
+          }).then(buffer => {
+              return new File([buffer], filename, { type: mimeType });
+          }).then(file => {
+              Message.sendImage(this._contactActive.chatId, this._user.email, file);
+              this.el.btnSendPicture.disabled = false;
+
+              this.closeAllMainPanel();
+              this._camera.stop();
+              this.el.btnReshootPanelCamera.hide();
+              this.el.pictureCamera.hide();
+              this.el.videoCamera.show();
+              this.el.containerSendPicture.hide();
+              this.el.containerTakePicture.hide();
+              this.el.panelMessagesContainer.show();
+          });
+
+      };
+
+});
 
     this.el.btnAttachDocument.on("click", (e) => {
       this.closeAllMainPanel();
@@ -493,14 +543,45 @@ export class WhatsAppController {
       this.el.panelMessagesContainer.show();
     });
 
-    this.el.btnSendDocument.on("click", (e) => {});
+    this.el.btnSendDocument.on("click", (e) => {
+      let file = this.el.inputDocument.files[0];
+      let base64 = this.el.imgPanelDocumentPreview.src;
+
+      if(file.type === 'application/pdf'){
+
+        Base64.toFile(base64).then(filePreview=> {
+
+        Message.sendDocument(
+          this._contactActive.chatId, 
+          this._user.email, file, filePreview, this.el.infoPanelDocumentPreview.innerHTML)
+        });
+      } else {
+        Message.sendDocument(
+          this._contactActive.chatId, 
+          this._user.email, file)
+      }
+      this.el.btnClosePanelDocumentPreview.click();
+      
+    });
 
     this.el.btnAttachContact.on("click", (e) => {
-      this.el.modalContacts.show();
+      this._contactsController = new ContactsController (this.el.modalContacts, this._user);
+
+      this._contactsController.on('select', contact =>{
+        Message.sendContact(
+          this._contactActive.chatId,
+          this._user.email,
+          contact
+        )
+      })
+
+      this._contactsController.open()
     });
 
     this.el.btnCloseModalContacts.on("click", (e) => {
-      this.el.modalContacts.hide();
+
+      this._contactsController.close()
+      
     });
 
     this.el.btnSendMicrophone.on("click", (e) => {
